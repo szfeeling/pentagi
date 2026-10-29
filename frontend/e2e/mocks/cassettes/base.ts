@@ -60,6 +60,24 @@ const settingsUser: ResultOf<typeof SettingsUserDocument> = {
 };
 
 export const baseQueries = (): NonNullable<Cassette['queries']> => ({
+    wirelessState: [
+        {
+            data: {
+                wirelessState: {
+                    revision: 0,
+                    areas: [],
+                    nodes: [],
+                    assets: [],
+                    contexts: [],
+                    endpoints: [],
+                    jobs: [],
+                    flows: [],
+                    events: [],
+                    observations: [],
+                },
+            },
+        },
+    ],
     flows: [{ data: flows }],
     flowTemplates: [{ data: flowTemplates }],
     providers: [{ data: providers }],

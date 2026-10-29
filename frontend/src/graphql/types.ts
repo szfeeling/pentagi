@@ -316,6 +316,13 @@ export enum VectorStoreAction {
     Store = 'store',
 }
 
+export type WirelessBindingInput = {
+    contextId: string;
+    endpointId?: string | null | undefined;
+    endpointRevision?: number | null | undefined;
+    epoch: number;
+};
+
 export type SettingsFragmentFragment = {
     debug: boolean;
     askUser: boolean;
@@ -1085,6 +1092,7 @@ export type CreateFlowMutationVariables = Exact<{
     modelProvider: string;
     input: string;
     resourceIds?: Array<string | number> | string | number | null | undefined;
+    wireless?: WirelessBindingInput | null | undefined;
 }>;
 
 export type CreateFlowMutation = { createFlow: FlowFragmentFragment };
@@ -1129,6 +1137,7 @@ export type CreateAssistantMutationVariables = Exact<{
     input: string;
     useAgents: boolean;
     resourceIds?: Array<string | number> | string | number | null | undefined;
+    wireless?: WirelessBindingInput | null | undefined;
 }>;
 
 export type CreateAssistantMutation = {
@@ -1446,6 +1455,20 @@ export type KnowledgeDocumentUpdatedSubscription = { knowledgeDocumentUpdated: K
 export type KnowledgeDocumentDeletedSubscriptionVariables = Exact<{ [key: string]: never }>;
 
 export type KnowledgeDocumentDeletedSubscription = { knowledgeDocumentDeleted: KnowledgeDocumentFragmentFragment };
+
+export type WirelessStateQueryVariables = Exact<{ [key: string]: never }>;
+
+export type WirelessStateQuery = { wirelessState: unknown };
+
+export type WirelessUpdatedSubscriptionVariables = Exact<{ [key: string]: never }>;
+
+export type WirelessUpdatedSubscription = { wirelessUpdated: unknown };
+
+export type WirelessCommandMutationVariables = Exact<{
+    command: unknown;
+}>;
+
+export type WirelessCommandMutation = { wirelessCommand: unknown };
 
 export const SettingsFragmentFragmentDoc = {
     kind: 'Document',
@@ -7900,6 +7923,11 @@ export const CreateFlowDocument = {
                         type: { kind: 'NonNullType', type: { kind: 'NamedType', name: { kind: 'Name', value: 'ID' } } },
                     },
                 },
+                {
+                    kind: 'VariableDefinition',
+                    variable: { kind: 'Variable', name: { kind: 'Name', value: 'wireless' } },
+                    type: { kind: 'NamedType', name: { kind: 'Name', value: 'WirelessBindingInput' } },
+                },
             ],
             selectionSet: {
                 kind: 'SelectionSet',
@@ -7922,6 +7950,11 @@ export const CreateFlowDocument = {
                                 kind: 'Argument',
                                 name: { kind: 'Name', value: 'resourceIds' },
                                 value: { kind: 'Variable', name: { kind: 'Name', value: 'resourceIds' } },
+                            },
+                            {
+                                kind: 'Argument',
+                                name: { kind: 'Name', value: 'wireless' },
+                                value: { kind: 'Variable', name: { kind: 'Name', value: 'wireless' } },
                             },
                         ],
                         selectionSet: {
@@ -8241,6 +8274,11 @@ export const CreateAssistantDocument = {
                         type: { kind: 'NonNullType', type: { kind: 'NamedType', name: { kind: 'Name', value: 'ID' } } },
                     },
                 },
+                {
+                    kind: 'VariableDefinition',
+                    variable: { kind: 'Variable', name: { kind: 'Name', value: 'wireless' } },
+                    type: { kind: 'NamedType', name: { kind: 'Name', value: 'WirelessBindingInput' } },
+                },
             ],
             selectionSet: {
                 kind: 'SelectionSet',
@@ -8273,6 +8311,11 @@ export const CreateAssistantDocument = {
                                 kind: 'Argument',
                                 name: { kind: 'Name', value: 'resourceIds' },
                                 value: { kind: 'Variable', name: { kind: 'Name', value: 'resourceIds' } },
+                            },
+                            {
+                                kind: 'Argument',
+                                name: { kind: 'Name', value: 'wireless' },
+                                value: { kind: 'Variable', name: { kind: 'Name', value: 'wireless' } },
                             },
                         ],
                         selectionSet: {
@@ -12798,3 +12841,64 @@ export const KnowledgeDocumentDeletedDocument = {
         },
     ],
 } as unknown as DocumentNode<KnowledgeDocumentDeletedSubscription, KnowledgeDocumentDeletedSubscriptionVariables>;
+export const WirelessStateDocument = {
+    kind: 'Document',
+    definitions: [
+        {
+            kind: 'OperationDefinition',
+            operation: 'query',
+            name: { kind: 'Name', value: 'wirelessState' },
+            selectionSet: {
+                kind: 'SelectionSet',
+                selections: [{ kind: 'Field', name: { kind: 'Name', value: 'wirelessState' } }],
+            },
+        },
+    ],
+} as unknown as DocumentNode<WirelessStateQuery, WirelessStateQueryVariables>;
+export const WirelessUpdatedDocument = {
+    kind: 'Document',
+    definitions: [
+        {
+            kind: 'OperationDefinition',
+            operation: 'subscription',
+            name: { kind: 'Name', value: 'wirelessUpdated' },
+            selectionSet: {
+                kind: 'SelectionSet',
+                selections: [{ kind: 'Field', name: { kind: 'Name', value: 'wirelessUpdated' } }],
+            },
+        },
+    ],
+} as unknown as DocumentNode<WirelessUpdatedSubscription, WirelessUpdatedSubscriptionVariables>;
+export const WirelessCommandDocument = {
+    kind: 'Document',
+    definitions: [
+        {
+            kind: 'OperationDefinition',
+            operation: 'mutation',
+            name: { kind: 'Name', value: 'wirelessCommand' },
+            variableDefinitions: [
+                {
+                    kind: 'VariableDefinition',
+                    variable: { kind: 'Variable', name: { kind: 'Name', value: 'command' } },
+                    type: { kind: 'NonNullType', type: { kind: 'NamedType', name: { kind: 'Name', value: 'JSON' } } },
+                },
+            ],
+            selectionSet: {
+                kind: 'SelectionSet',
+                selections: [
+                    {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'wirelessCommand' },
+                        arguments: [
+                            {
+                                kind: 'Argument',
+                                name: { kind: 'Name', value: 'command' },
+                                value: { kind: 'Variable', name: { kind: 'Name', value: 'command' } },
+                            },
+                        ],
+                    },
+                ],
+            },
+        },
+    ],
+} as unknown as DocumentNode<WirelessCommandMutation, WirelessCommandMutationVariables>;

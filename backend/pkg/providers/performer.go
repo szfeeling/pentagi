@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"pentagi/pkg/wireless"
 	"slices"
 	"strconv"
 	"strings"
@@ -365,7 +366,7 @@ func (fp *flowProvider) execToolCall(
 				return "", err
 			}
 
-			if errors.Is(err, tools.ErrFlowStateGuard) {
+			if errors.Is(err, tools.ErrFlowStateGuard) || errors.Is(err, wireless.ErrEnvironmentChanged) {
 				// Not an argument-format problem: the flow/task/subtask is in a state
 				// that makes this call impossible right now (task running, no plan
 				// yet, stale subtask, ...). Retrying fixToolCallArgs can't change

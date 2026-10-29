@@ -12,6 +12,7 @@ import FlowTasks from '@/features/flows/tasks/flow-tasks';
 import FlowTerminal from '@/features/flows/terminal/flow-terminal';
 import FlowTools from '@/features/flows/tools/flow-tools';
 import FlowVectorStores from '@/features/flows/vector-stores/flow-vector-stores';
+import { FlowWireless, useWirelessFlowBinding } from '@/features/wireless/flow-wireless';
 import { useBreakpoint } from '@/hooks/use-breakpoint';
 
 interface FlowTabsProps {
@@ -20,6 +21,7 @@ interface FlowTabsProps {
 }
 
 function FlowTabs({ activeTab, onTabChange }: FlowTabsProps) {
+    const wirelessBinding = useWirelessFlowBinding();
     const { isDesktop } = useBreakpoint();
 
     const previousActiveTabRef = useRef<string>(activeTab);
@@ -44,6 +46,7 @@ function FlowTabs({ activeTab, onTabChange }: FlowTabsProps) {
                         {!isDesktop && <TabsTrigger value="automation">Automation</TabsTrigger>}
                         {!isDesktop && <TabsTrigger value="assistant">Assistant</TabsTrigger>}
                         {!isDesktop && <TabsTrigger value="dashboard">Dashboard</TabsTrigger>}
+                        {!isDesktop && wirelessBinding && <TabsTrigger value="wireless">Wireless</TabsTrigger>}
                         <TabsTrigger value="terminal">Terminal</TabsTrigger>
                         <TabsTrigger value="tasks">Tasks</TabsTrigger>
                         <TabsTrigger value="agents">Agents</TabsTrigger>
@@ -56,6 +59,14 @@ function FlowTabs({ activeTab, onTabChange }: FlowTabsProps) {
                 </ScrollArea>
             </div>
 
+            {!isDesktop && wirelessBinding && (
+                <TabsContent
+                    className="mt-1 flex-1 overflow-auto pr-4"
+                    value="wireless"
+                >
+                    <FlowWireless />
+                </TabsContent>
+            )}
             {!isDesktop && (
                 <TabsContent
                     className="mt-1 flex-1 overflow-auto"

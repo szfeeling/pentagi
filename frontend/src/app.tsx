@@ -34,10 +34,12 @@ import { TemplatesProvider } from '@/providers/templates-provider';
 import { ThemeProvider } from '@/providers/theme-provider';
 import { UserProvider } from '@/providers/user-provider';
 import { VersionInfoProvider } from '@/providers/version-info-provider';
+import { WirelessProvider } from '@/providers/wireless-provider';
 
 import { SystemSettingsProvider } from './providers/system-settings-provider';
 
 const Dashboard = lazy(() => import('@/pages/dashboard/dashboard'));
+const Wireless = lazy(() => import('@/pages/wireless/wireless'));
 const Flow = lazy(() => import('@/pages/flows/flow'));
 const FlowReport = lazy(() => import('@/pages/flows/flow-report'));
 const Flows = lazy(() => import('@/pages/flows/flows'));
@@ -79,7 +81,9 @@ function ProtectedAppLayout() {
                 <VersionInfoProvider>
                     <ProvidersProvider>
                         <SidebarFlowsProvider>
-                            <AppLayout />
+                            <WirelessProvider>
+                                <AppLayout />
+                            </WirelessProvider>
                         </SidebarFlowsProvider>
                     </ProvidersProvider>
                 </VersionInfoProvider>
@@ -138,6 +142,21 @@ const router = createBrowserRouter(
         >
             <Route element={<ProtectedAppLayout />}>
                 <Route element={<MainLayout />}>
+                    <Route
+                        element={<Wireless />}
+                        handle={routeTitles.wireless}
+                        path="wireless"
+                    />
+                    <Route
+                        element={<Wireless />}
+                        handle={routeTitles.wireless}
+                        path="wireless/areas/:areaId"
+                    />
+                    <Route
+                        element={<Wireless />}
+                        handle={routeTitles.wireless}
+                        path="wireless/nodes"
+                    />
                     <Route
                         element={<Dashboard />}
                         handle={routeTitles.dashboard}

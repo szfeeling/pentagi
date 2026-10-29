@@ -7766,6 +7766,82 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/wireless/node/report": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Wireless"
+                ],
+                "summary": "Submit wireless node heartbeat, observations and job receipts",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Bearer node enrollment token",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Node report",
+                        "name": "report",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/wireless.Report"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/wireless.Dispatch"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -10674,6 +10750,270 @@ const docTemplate = `{
                     }
                 },
                 "token": {
+                    "type": "string"
+                },
+                "wireless": {
+                    "$ref": "#/definitions/wireless.Binding"
+                }
+            }
+        },
+        "wireless.Binding": {
+            "type": "object",
+            "properties": {
+                "contextId": {
+                    "type": "string"
+                },
+                "endpointId": {
+                    "type": "string"
+                },
+                "endpointRevision": {
+                    "type": "integer"
+                },
+                "epoch": {
+                    "type": "integer"
+                }
+            }
+        },
+        "wireless.ContextReport": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "type": "string"
+                },
+                "bssid": {
+                    "type": "string"
+                },
+                "connected": {
+                    "type": "boolean"
+                },
+                "daemonId": {
+                    "type": "string"
+                },
+                "endpoints": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/wireless.Endpoint"
+                    }
+                },
+                "frequency": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "interface": {
+                    "type": "string"
+                },
+                "jobId": {
+                    "type": "string"
+                },
+                "leaseId": {
+                    "type": "string"
+                },
+                "network": {
+                    "type": "string"
+                },
+                "networkId": {
+                    "type": "string"
+                }
+            }
+        },
+        "wireless.Dispatch": {
+            "type": "object",
+            "properties": {
+                "jobs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/wireless.Job"
+                    }
+                },
+                "leaseUntil": {
+                    "type": "string"
+                },
+                "revokeContexts": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "verificationTargets": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/wireless.VerificationTarget"
+                    }
+                }
+            }
+        },
+        "wireless.Endpoint": {
+            "type": "object",
+            "properties": {
+                "contextId": {
+                    "type": "string"
+                },
+                "expiresAt": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "ip": {
+                    "type": "string"
+                },
+                "mac": {
+                    "type": "string"
+                },
+                "revision": {
+                    "type": "integer"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "wireless.Job": {
+            "type": "object",
+            "properties": {
+                "areaId": {
+                    "type": "string"
+                },
+                "bssid": {
+                    "type": "string"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "leaseId": {
+                    "type": "string"
+                },
+                "leaseUntil": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "nodeId": {
+                    "type": "string"
+                },
+                "requestId": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "wireless.JobResult": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "leaseId": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "wireless.Observation": {
+            "type": "object",
+            "properties": {
+                "areaId": {
+                    "type": "string"
+                },
+                "bssid": {
+                    "type": "string"
+                },
+                "frequency": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "mac": {
+                    "type": "string"
+                },
+                "nodeId": {
+                    "type": "string"
+                },
+                "observedAt": {
+                    "type": "string"
+                },
+                "security": {
+                    "type": "string"
+                },
+                "signal": {
+                    "type": "number"
+                },
+                "ssid": {
+                    "type": "string"
+                }
+            }
+        },
+        "wireless.Report": {
+            "type": "object",
+            "properties": {
+                "bootId": {
+                    "type": "string"
+                },
+                "capabilities": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "contexts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/wireless.ContextReport"
+                    }
+                },
+                "nodeId": {
+                    "type": "string"
+                },
+                "observations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/wireless.Observation"
+                    }
+                },
+                "results": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/wireless.JobResult"
+                    }
+                },
+                "sequence": {
+                    "type": "integer"
+                }
+            }
+        },
+        "wireless.VerificationTarget": {
+            "type": "object",
+            "properties": {
+                "contextId": {
+                    "type": "string"
+                },
+                "expiresAt": {
+                    "type": "string"
+                },
+                "ip": {
+                    "type": "string"
+                },
+                "mac": {
                     "type": "string"
                 }
             }

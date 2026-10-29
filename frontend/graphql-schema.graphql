@@ -1101,8 +1101,8 @@ mutation deleteFlowTemplate($templateId: ID!) {
 
 # ==================== Flows ====================
 
-mutation createFlow($modelProvider: String!, $input: String!, $resourceIds: [ID!]) {
-    createFlow(modelProvider: $modelProvider, input: $input, resourceIds: $resourceIds) {
+mutation createFlow($modelProvider: String!, $input: String!, $resourceIds: [ID!], $wireless: WirelessBindingInput) {
+    createFlow(modelProvider: $modelProvider, input: $input, resourceIds: $resourceIds, wireless: $wireless) {
         ...flowFragment
     }
 }
@@ -1127,8 +1127,22 @@ mutation renameFlow($flowId: ID!, $title: String!) {
     renameFlow(flowId: $flowId, title: $title)
 }
 
-mutation createAssistant($flowId: ID!, $modelProvider: String!, $input: String!, $useAgents: Boolean!, $resourceIds: [ID!]) {
-    createAssistant(flowId: $flowId, modelProvider: $modelProvider, input: $input, useAgents: $useAgents, resourceIds: $resourceIds) {
+mutation createAssistant(
+    $flowId: ID!
+    $modelProvider: String!
+    $input: String!
+    $useAgents: Boolean!
+    $resourceIds: [ID!]
+    $wireless: WirelessBindingInput
+) {
+    createAssistant(
+        flowId: $flowId
+        modelProvider: $modelProvider
+        input: $input
+        useAgents: $useAgents
+        resourceIds: $resourceIds
+        wireless: $wireless
+    ) {
         flow {
             ...flowFragment
         }
@@ -1139,7 +1153,13 @@ mutation createAssistant($flowId: ID!, $modelProvider: String!, $input: String!,
 }
 
 mutation callAssistant($flowId: ID!, $assistantId: ID!, $input: String!, $useAgents: Boolean!, $resourceIds: [ID!]) {
-    callAssistant(flowId: $flowId, assistantId: $assistantId, input: $input, useAgents: $useAgents, resourceIds: $resourceIds)
+    callAssistant(
+        flowId: $flowId
+        assistantId: $assistantId
+        input: $input
+        useAgents: $useAgents
+        resourceIds: $resourceIds
+    )
 }
 
 mutation stopAssistant($flowId: ID!, $assistantId: ID!) {
@@ -1152,7 +1172,12 @@ mutation deleteAssistant($flowId: ID!, $assistantId: ID!) {
     deleteAssistant(flowId: $flowId, assistantId: $assistantId)
 }
 
-mutation testAgent($type: ProviderType!, $agentType: AgentConfigType!, $agent: AgentConfigInput!, $simple: AgentConfigInput) {
+mutation testAgent(
+    $type: ProviderType!
+    $agentType: AgentConfigType!
+    $agent: AgentConfigInput!
+    $simple: AgentConfigInput
+) {
     testAgent(type: $type, agentType: $agentType, agent: $agent, simple: $simple) {
         ...agentTestResultFragment
     }
@@ -1456,4 +1481,14 @@ subscription knowledgeDocumentDeleted {
     knowledgeDocumentDeleted {
         ...knowledgeDocumentFragment
     }
+}
+
+query wirelessState {
+    wirelessState
+}
+subscription wirelessUpdated {
+    wirelessUpdated
+}
+mutation wirelessCommand($command: JSON!) {
+    wirelessCommand(command: $command)
 }

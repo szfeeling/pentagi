@@ -9,6 +9,10 @@ vi.mock('@/providers/flow-provider', () => ({
     useFlow: () => ({ flowData: { messageLogs: [{ id: '1' }] }, isLoading: false }),
 }));
 
+vi.mock('@/providers/wireless-provider', () => ({
+    useWireless: () => ({ state: null, error: null }),
+}));
+
 vi.mock('@/features/flows/dashboard/flow-dashboard', () => ({ default: () => <div data-slot="panel-dashboard" /> }));
 vi.mock('@/features/flows/messages/flow-assistant-messages', () => ({
     default: () => <div data-slot="panel-assistant" />,

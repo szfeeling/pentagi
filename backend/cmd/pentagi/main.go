@@ -28,6 +28,7 @@ import (
 	router "pentagi/pkg/server"
 	"pentagi/pkg/server/update"
 	"pentagi/pkg/version"
+	"pentagi/pkg/wireless"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/lib/pq"
@@ -218,6 +219,7 @@ func main() {
 		go profiling.Start(cfg.PprofAddr)
 	}
 
+	cfg.Wireless = wireless.New(wireless.SQLStore{DB: db})
 	client, err := docker.NewDockerClient(ctx, queries, cfg)
 	if err != nil {
 		logrus.WithError(err).Fatal("Docker runtime client initialization failed")

@@ -10,6 +10,7 @@ import {
     ApiTokenDeletedDocument,
     ApiTokenUpdatedDocument,
     AssistantLogFragmentFragmentDoc,
+    WirelessStateDocument,
 } from '@/graphql/types';
 
 import operationsDocument from '../../graphql-schema.graphql?raw';
@@ -26,6 +27,23 @@ import {
     watchQueryDefaults,
 } from './apollo';
 import { listOrder } from './list-order';
+
+describe('createCache wireless snapshots', () => {
+    it('keeps newer wireless snapshots when an older query finishes last', () => {
+        const cache = createCache();
+        cache.writeQuery({ data: { wirelessState: { revision: 4, status: 'invalid' } }, query: WirelessStateDocument });
+        cache.writeQuery({ data: { wirelessState: { revision: 3, status: 'ready' } }, query: WirelessStateDocument });
+        expect(cache.readQuery({ query: WirelessStateDocument })?.wirelessState).toEqual({
+            revision: 4,
+            status: 'invalid',
+        });
+        cache.writeQuery({ data: { wirelessState: { revision: 4, status: 'expired' } }, query: WirelessStateDocument });
+        expect(cache.readQuery({ query: WirelessStateDocument })?.wirelessState).toEqual({
+            revision: 4,
+            status: 'expired',
+        });
+    });
+});
 
 const TERMINAL = gql`
     query T($flowId: ID!) {
@@ -1113,7 +1131,8 @@ describe('a subscription writes an entity the list query can still read', () => 
         selectedByQuery.set(field.name.value, known);
     }
 
-    const writesNoList = ['providerCreated', 'providerDeleted', 'providerUpdated'];
+    // WirelessProvider validates and replaces the complete versioned snapshot.
+    const writesNoList = ['providerCreated', 'providerDeleted', 'providerUpdated', 'wirelessUpdated'];
 
     it('routes every subscription the document declares, or says why it routes none', () => {
         const subscribed = rootFields('subscription').map(({ name }) => name.value);

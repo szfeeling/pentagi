@@ -9,6 +9,7 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/sqlc-dev/pqtype"
@@ -1159,4 +1160,10 @@ type Vecstorelog struct {
 	TaskID    sql.NullInt64      `json:"task_id"`
 	SubtaskID sql.NullInt64      `json:"subtask_id"`
 	CreatedAt sql.NullTime       `json:"created_at"`
+}
+
+type WirelessState struct {
+	UserID    int64           `json:"user_id"`
+	State     json.RawMessage `json:"state"`
+	UpdatedAt time.Time       `json:"updated_at"`
 }

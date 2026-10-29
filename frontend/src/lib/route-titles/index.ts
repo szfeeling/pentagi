@@ -96,4 +96,5 @@ export const routeTitles = {
     },
 
     templates: { title: 'Templates' },
+    wireless: { title: 'Wireless environment' },
 } as const satisfies Record<string, RouteTitleHandle>;

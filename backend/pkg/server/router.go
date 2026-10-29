@@ -67,6 +67,7 @@ var frontendRoutes = []string{
 	"/resources",
 	"/knowledges",
 	"/dashboard",
+	"/wireless",
 }
 
 // @title PentAGI Swagger API
@@ -306,6 +307,7 @@ func NewRouter(
 	}
 
 	privateGroup := api.Group("/")
+	api.POST("/wireless/node/report", (&services.WirelessService{Service: cfg.Wireless}).Report)
 	privateGroup.Use(authMiddleware.AuthTokenRequired)
 
 	privateUserGroup := api.Group("/")

@@ -139,6 +139,7 @@ func (w *noopObservationWrapper) end(result string, err error, durationSeconds f
 }
 
 type customExecutor struct {
+	guard     func(context.Context) (context.Context, func(), error)
 	userID    int64
 	flowID    int64
 	taskID    *int64
@@ -287,6 +288,14 @@ func (ce *customExecutor) Execute(
 	args json.RawMessage,
 ) (string, error) {
 	startTime := time.Now()
+	if ce.guard != nil {
+		guarded, done, err := ce.guard(ctx)
+		if err != nil {
+			return "", err
+		}
+		defer done()
+		ctx = guarded
+	}
 
 	handler, ok := ce.handlers[name]
 	if !ok {

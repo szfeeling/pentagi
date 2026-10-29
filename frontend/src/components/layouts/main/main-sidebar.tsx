@@ -11,6 +11,7 @@ import {
     Monitor,
     Moon,
     Plus,
+    Radio,
     Settings,
     Settings2,
     Star,
@@ -137,6 +138,20 @@ export function MainSidebar() {
                                     </Link>
                                 </SidebarMenuButton>
                             </SidebarMenuItem>
+                            {(authInfo?.privileges?.includes('wireless.view') ||
+                                authInfo?.privileges?.includes('wireless.admin')) && (
+                                <SidebarMenuItem>
+                                    <SidebarMenuButton
+                                        asChild
+                                        isActive={location.pathname.startsWith('/wireless')}
+                                    >
+                                        <Link to={routes.wireless}>
+                                            <Radio />
+                                            Wireless
+                                        </Link>
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+                            )}
                             <SidebarMenuItem>
                                 <SidebarMenuButton
                                     asChild

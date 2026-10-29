@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"pentagi/pkg/wireless"
+
 	"github.com/caarlos0/env/v10"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -19,6 +21,7 @@ import (
 )
 
 type Config struct {
+	Wireless *wireless.Service `env:"-" json:"-"`
 	// === Core System Configuration ===
 	Debug   bool   `env:"DEBUG" envDefault:"false"`
 	DataDir string `env:"DATA_DIR" envDefault:"./data"`

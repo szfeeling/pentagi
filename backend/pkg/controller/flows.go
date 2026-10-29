@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
@@ -282,6 +283,16 @@ func (fc *flowController) CreateFlow(
 	functions *tools.Functions,
 	resources []database.UserResource,
 ) (int64, error) {
+	if functions != nil && functions.Wireless != nil {
+		if fc.cfg == nil || fc.cfg.Wireless == nil {
+			return 0, fmt.Errorf("wireless service unavailable")
+		}
+		var err error
+		input, err = fc.cfg.Wireless.Input(ctx, userID, *functions.Wireless, input)
+		if err != nil {
+			return 0, err
+		}
+	}
 	fwc := newFlowWorkerCtx{
 		userID:        userID,
 		input:         input,
@@ -413,6 +424,37 @@ func (fc *flowController) CreateAssistant(
 	functions *tools.Functions,
 	resources []database.UserResource,
 ) (int64, error) {
+	if flowID != 0 && fc.cfg != nil && fc.cfg.Wireless != nil {
+		flow, err := fc.db.GetFlow(ctx, flowID)
+		if err != nil {
+			return 0, err
+		}
+		var stored tools.Functions
+		if err := json.Unmarshal(flow.Functions, &stored); err != nil {
+			return 0, err
+		}
+		if stored.Wireless != nil {
+			if _, err := fc.cfg.Wireless.Check(ctx, flow.UserID, *stored.Wireless); err != nil {
+				return 0, err
+			}
+			if functions == nil {
+				functions = &tools.Functions{}
+			}
+			functions.Wireless = stored.Wireless
+		} else if functions != nil && functions.Wireless != nil {
+			return 0, fmt.Errorf("create a new flow to bind a wireless context")
+		}
+	}
+	if functions != nil && functions.Wireless != nil {
+		if fc.cfg == nil || fc.cfg.Wireless == nil {
+			return 0, fmt.Errorf("wireless service unavailable")
+		}
+		var err error
+		input, err = fc.cfg.Wireless.Input(ctx, userID, *functions.Wireless, input)
+		if err != nil {
+			return 0, err
+		}
+	}
 	fwc := newFlowWorkerCtx{
 		userID:        userID,
 		input:         input,

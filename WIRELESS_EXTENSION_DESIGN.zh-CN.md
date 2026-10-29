@@ -1,10 +1,10 @@
 # PentAGI 区域无线网络渗透测试扩展设计
 
-版本：0.2，设计稿，包含前端规划。
+版本：0.4，设计方案与首版实现状态，包含前端规划与组件级复用约束。
 
 日期：2026-10-20。
 
-本文根据项目源码分析与需求讨论重新整理，覆盖无线接入、原有网络与客户端渗透能力复用、动态环境控制、数据与接口、前端交互及实施验收。本文为待实现方案，不表示相关功能已经开发或通过运行验证。
+本文根据项目源码分析与需求讨论重新整理，覆盖无线接入、原有网络与客户端渗透能力复用、动态环境控制、数据与接口、前端交互及实施验收。本文保留完整目标设计；已落地范围、验证结果与后续工作见第 18 节，不能将全部设计项视为已实现。
 
 ## 1. 目标与关键决策
 
@@ -433,6 +433,8 @@ GET  /api/v1/wireless/evidence/{id}
 
 区域页选中资产后可带入创建表单，提交前向服务端预检查新鲜度、身份、节点与资源。提交失败保留用户输入；后台目标变化不能静默替换表单目标。
 
+任务场景与已有的 Automation / Assistant 类型是两个维度，不替换现有类型。复用 `FlowForm` 的模型、模板、资源和消息输入，无线参数在外层领域组件组合；共用一次提交链，不能复制整套创建页面或各建一套选择器。
+
 ### 10.7 操作语义
 
 | 操作 | 含义 |
@@ -481,6 +483,50 @@ frontend/src/providers/
 在 `app.tsx` 和 `lib/routes.ts` 注册页面，在主导航增加入口，更新 Flow 的中央、移动端标签与对应 URL 检测。表格、抽屉、表单和详情导航沿用现有组件，业务耦合留在 `features/wireless`，不放入通用 UI 组件。
 
 遵循仓库 [列表与详情页规范](frontend/docs/list-detail-pages.md)，前后端 Schema 变更后重新生成 GraphQL 类型。
+
+### 10.10 基础组件复用矩阵
+
+本节将复用要求落实到已存在的代码。下面的“扩展”均为待实现工作，不能理解为这些接口已经具备。
+
+| 无线界面需求 | 现有基础 | 具体复用方式 |
+| --- | --- | --- |
+| 页面外壳、标题、面包屑、操作栏 | [AppHeader](frontend/src/components/layouts/app/app-header.tsx)、现有 MainLayout | 新增路由与导航项，沿用主题、间距和页面操作栏 |
+| 热点、客户端、节点和调查列表 | [DataTable / DataTableColumnHeader](frontend/src/components/ui/data-table.tsx) | 新增领域列定义、筛选项和行操作，不新增 WirelessDataTable 基础实现 |
+| 搜索与分页 URL 状态 | [useTableState](frontend/src/hooks/use-table-state.ts) | 使用统一 query/page 规则，过滤变化重置页码 |
+| 排序、列显示、页大小的持久化 | [usePageStorageKeys](frontend/src/hooks/use-page-storage-keys.ts)、DataTable | 为热点、客户端、节点及不同区域指定独立 storageKey |
+| 详情前后切换与列表选择器 | [useDetailNavigation](frontend/src/components/shared/detail-navigation/use-detail-navigation.ts)、配套工具栏和 Sheet | 新增资产领域 Hook，统一 ID、标签和搜索字段，沿用同一过滤子集 |
+| 资产详情抽屉 | [Sheet](frontend/src/components/ui/sheet.tsx) | Sheet 内组合 WirelessAssetDetails；现有 DetailNavigationSheet 只承担列表导航，不冒充详情内容容器 |
+| 左右分栏与尺寸调整 | [Resizable](frontend/src/components/ui/resizable.tsx)、[DetailSplitLayout](frontend/src/components/shared/detail-split-layout.tsx) | 表单详情可复用固定分栏；区域列表与地图按实际比例组合 Resizable |
+| 新建任务及常用选择器 | [FlowForm](frontend/src/features/flows/flow-form.tsx)、原有 Provider/Template/Resource 数据 | 领域组件增加无线配置，复用原有模型、模板、资源选择和提交结果语义 |
+| 无线配置字段与校验 | [useAppForm](frontend/src/hooks/use-app-form.ts)、[Form](frontend/src/components/ui/form.tsx) 与现有输入组件 | 使用 Zod 和统一校验时机，不增加新的表单框架 |
+| 业务状态、说明和反馈 | Badge、Tooltip、Spinner、现有 toast | 新增领域状态映射，复用外观、无障碍和反馈方式 |
+| 页面加载、错误、空数据 | [LoadingState](frontend/src/components/shared/loading-state.tsx)、[ErrorState](frontend/src/components/shared/error-state.tsx)、Empty | 为不同业务原因提供内容，不重建整套状态组件 |
+| 应用连接状态 | [ConnectionStatus](frontend/src/components/shared/connection-status.tsx) | 沿用全局订阅断线提示；节点离线是另一类领域状态，不能混用 |
+| 停止、结束和其他确认交互 | [ConfirmationDialog](frontend/src/components/shared/confirmation-dialog.tsx)、Button | 沿用需要确认的现有操作语义和 pending 状态，不为所有动作增加确认步骤 |
+| Agent 对话、终端、任务和文件 | 现有 FlowCentralTabs、FlowTabs 及其子组件 | 在原工作区加入无线环境，不复制第二套执行工作台 |
+| 报告展示与导出 | [现有报告模块](frontend/src/lib/report/)、现有 Flow 报告页 | 增加无线证据与中断信息，沿用 Markdown/PDF 等现有导出路径 |
+| 查询、认证、缓存和订阅 | 现有 Apollo Client、生成类型、FlowProvider 的数据追赶方式 | 增加无线查询与事件映射，复用现有连接，不另起 WebSocket 客户端 |
+| 内嵌区域长列表 | [useElementVirtualList](frontend/src/hooks/use-element-virtual-list.ts) | 必要时在通用表格中组合现有元素滚动能力，不再创建一套无线虚拟滚动框架 |
+| 测试与模拟数据 | 现有 Vitest、Playwright 和 [cassette 机制](frontend/e2e/mocks/cassette.ts) | 增加无线用例与事件数据，沿用现有测试层 |
+
+### 10.11 复用中的必要适配
+
+1. **稳定业务行 ID。** 当前 DataTable 未开放 `getRowId`，TanStack 默认行 ID 为位置索引。无线列表插入、删除和实时更新会改变位置，需要向通用组件添加可选 `getRowId`，无线场景使用逻辑资产 ID；现有调用保留默认行为。
+2. **滚动容器限制。** 当前 DataTable 的虚拟滚动使用 window，不能直接用于 Flow 内嵌滚动面板，也不能同时假定展开行的变高测量已经支持。首版这些面板采用现有分页；确需虚拟化时，在通用组件中扩展可选元素滚动适配，复用 `useElementVirtualList`，再验证布局和可访问性。
+3. **多表状态隔离。** 同一区域页有热点和客户端表，不能使用相同的默认 storageKey。利用 `usePageStorageKeys` 的基础键，加上区域与表类型后缀；每个表的搜索和分页参数也需要明确归属。
+4. **列表与详情匹配。** DataTable 与详情导航应共用领域搜索字段和明确匹配规则，覆盖多列查询场景，不能假定现有两套默认匹配在所有输入下完全一致。
+5. **分栏布局边界。** DetailSplitLayout 当前采用固定的 45/55 初始比例和每侧 390px 最小宽度，适合部分表单详情；不能强制套用所有无线工作台。自适应区域视图直接组合已有 Resizable、Sheet 和 useBreakpoint。
+6. **表单领域隔离。** FlowForm 当前没有无线字段或通用附加区接口。优先在无线外层组合配置并在原 onSubmit 链中完成校验；确需内嵌时增加领域无关的插槽，不在通用表单硬编码无线字段，不产生嵌套 form 标签，也不复制模型和资源选择逻辑。
+7. **错误反馈的重试含义。** ErrorState 的 Retry 用于重新读取数据。执行状态未知时，不能把执行命令重放接到该按钮；领域内容应提供“核对执行状态”。
+8. **数据追赶不是直接复用整个 FlowProvider。** 沿用其模式和可复用逻辑，必要时抽取小范围公共函数；无线对象的 revision、游标、迟到和历史回放仍需专门处理，不能只新增 Provider 名称就视为完成。
+
+以上适配应优先保持已有调用兼容，不因无线功能重写通用组件。页面只定义领域数据、列、状态文案、事件及操作，通用组件不导入 `features/wireless`；领域内容通过 props 或组合传入。
+
+### 10.12 真正新增的领域内容
+
+首版新增内容限定为无线资产列定义与详情、节点能力和租约展示、覆盖信息、无线创建配置、Flow 环境摘要、环境变化时间线及相应数据适配。地图与热力图后续按需要建设。
+
+不新建第二套布局系统、表格、表单框架、模型选择器、资源上传器、终端、任务树、报告导出或连接管理。新建领域 Provider 表示接入新的业务数据，不代表重写底层状态与网络基础设施。
 
 ## 11. 验证、证据、报告与知识
 
@@ -587,6 +633,10 @@ P0 必须包含基础版本检查和失效阻断，不能等到后期才补齐�
 - 无节点、节点异常、覆盖不足、无目标等空状态明确。
 - 桌面与移动端均能访问无线环境，旧 Flow 深链接正常。
 - 无权限操作和环境前置条件失败有明确说明。
+- DataTable 使用稳定资产 ID 后，插入、删除和重排不错误继承其他行的选择或展开状态。
+- 热点与客户端表的筛选、页码和持久化偏好互不覆盖。
+- 内嵌滚动、分页和必要的虚拟列表不产生错位，详情导航保持相同过滤子集。
+- 常规 FlowForm、Automation / Assistant 切换、模板和资源选择保持兼容。
 
 ### 15.3 验证方式与指标
 
@@ -634,4 +684,18 @@ P0 必须包含基础版本检查和失效阻断，不能等到后期才补齐�
 | [frontend/src/lib/apollo.ts](frontend/src/lib/apollo.ts) | 缓存、订阅与流式内容 |
 | [frontend/docs/list-detail-pages.md](frontend/docs/list-detail-pages.md) | 列表和详情页复用规范 |
 
-本次交付仅重新输出设计文档，未进行无线采集、网络接入、客户端测试、硬件验证或功能实现。
+## 18. 首版实现状态
+
+已落地无线区域、节点注册与撤销、节点令牌鉴权、被动观测、区域内稳定资产 ID、观测历史、网络上下文、客户端 MAC/IP 版本绑定、异步操作与取消回执。状态按用户持久化到 PostgreSQL，写入串行化并推进版本号；使用现有 GraphQL、认证和 Apollo 连接同步页面。
+
+已新增 Linux 节点程序 `backend/cmd/wireless-node`。空闲时定期被动扫描；接入使用本地保存且固定 BSSID 的 NetworkManager 配置。节点核对关联、地址、频率、Docker daemon 和网络身份，并上报具有最近确认时间的可达邻居；缓存证据不会因心跳而续期。仅对活动 Flow 已选定的客户端执行有界、定向的 ARP 核验，上报实际回应的 MAC；任务结束后停止核验，身份变化或核验失效仍阻断旧绑定。控制链路租约到期后清理相关容器和关联，重启时先根据本地持久日志清理。
+
+已复用现有 Flow、Automation / Assistant、Pentester、Coder、Installer、终端、知识库和报告执行链。新建 Flow 固定上下文 epoch 和可选客户端 revision，保留创建时的环境证据。创建、工具调用、运行中及空闲容器均经过环境检查；环境变化拒绝旧绑定并停止容器，不自动把旧任务绑定到新 IP。
+
+已新增 `/wireless`、`/wireless/areas/:areaId`、`/wireless/nodes` 页面及 Flow 的 Wireless 标签，复用 MainLayout、AppHeader、DataTable、useTableState、Sheet、useAppForm、FlowForm 和原有订阅连接。DataTable 增加可选稳定行 ID，不影响现有默认行为。
+
+首版采用每用户一份有界 JSONB 状态，GraphQL 无线快照和命令使用经验证的 JSON 载荷。后续高吞吐场景仍需按完整设计拆分数据表、归档历史、细化类型接口和扩展分布式调度。目前每个部署复用一个配置好的 Docker daemon；无线 Flow 只能使用同一 daemon 上已准备的 ipvlan/macvlan 网络，其他远程运行时不会被误标为可用。
+
+Kismet 适配、覆盖热力图、独立历史回放模式、跨节点无线调度、自动获取接入凭据、硬件专属攻击适配器和高容量归档尚未实现。原有通用网络与客户端测试工具可以在有效接入后继续使用。网卡、驱动、接入点、ipvlan/macvlan 路由、客户端隔离与 DHCP 变化的物理行为尚未通过本次环境验证。
+
+部署步骤、接口、租约、容量限制及实机验收项见 [无线节点运行说明](examples/guides/wireless-node/README.md)。

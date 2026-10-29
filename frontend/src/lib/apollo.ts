@@ -589,6 +589,15 @@ export const createCache = () =>
             },
             Query: {
                 fields: {
+                    wirelessState: {
+                        merge(existing: Record<string, unknown> | undefined, incoming: Record<string, unknown>) {
+                            return typeof existing?.revision === 'number' &&
+                                typeof incoming?.revision === 'number' &&
+                                existing.revision > incoming.revision
+                                ? existing
+                                : incoming;
+                        },
+                    },
                     ...keyedListFields,
                     apiTokens: { ...replaceWithIncoming },
                     flow: {

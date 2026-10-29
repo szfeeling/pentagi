@@ -2,6 +2,13 @@ scalar Time
 scalar JSON
 scalar Map
 
+input WirelessBindingInput {
+  contextId: String!
+  epoch: Int!
+  endpointId: String
+  endpointRevision: Int
+}
+
 # Core execution status for flows, tasks and agents
 enum StatusType {
   created
@@ -1006,6 +1013,7 @@ input UpdateKnowledgeDocumentInput {
 # ==================== GraphQL Operations ====================
 
 type Query {
+  wirelessState: JSON!
   providers: [Provider!]!
 
   # Flow and assistant management
@@ -1073,8 +1081,9 @@ type Query {
 }
 
 type Mutation {
+  wirelessCommand(command: JSON!): JSON!
   # Flow management
-  createFlow(modelProvider: String!, input: String!, resourceIds: [ID!]): Flow!
+  createFlow(modelProvider: String!, input: String!, resourceIds: [ID!], wireless: WirelessBindingInput): Flow!
   putUserInput(flowId: ID!, input: String!, modelProvider: String, resourceIds: [ID!]): ResultType!
   stopFlow(flowId: ID!): ResultType!
   finishFlow(flowId: ID!): ResultType!
@@ -1082,7 +1091,7 @@ type Mutation {
   renameFlow(flowId: ID!, title: String!): ResultType!
 
   # Assistant management
-  createAssistant(flowId: ID!, modelProvider: String!, input: String!, useAgents: Boolean!, resourceIds: [ID!]): FlowAssistant!
+  createAssistant(flowId: ID!, modelProvider: String!, input: String!, useAgents: Boolean!, resourceIds: [ID!], wireless: WirelessBindingInput): FlowAssistant!
   callAssistant(flowId: ID!, assistantId: ID!, input: String!, useAgents: Boolean!, resourceIds: [ID!]): ResultType!
   stopAssistant(flowId: ID!, assistantId: ID!): Assistant!
   deleteAssistant(flowId: ID!, assistantId: ID!): ResultType!
@@ -1123,6 +1132,7 @@ type Mutation {
 }
 
 type Subscription {
+  wirelessUpdated: JSON!
   # Flow events
   flowCreated: Flow!
   flowDeleted: Flow!

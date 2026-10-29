@@ -2049,6 +2049,179 @@ definitions:
         type: array
       token:
         type: string
+      wireless:
+        $ref: '#/definitions/wireless.Binding'
+    type: object
+  wireless.Binding:
+    properties:
+      contextId:
+        type: string
+      endpointId:
+        type: string
+      endpointRevision:
+        type: integer
+      epoch:
+        type: integer
+    type: object
+  wireless.ContextReport:
+    properties:
+      address:
+        type: string
+      bssid:
+        type: string
+      connected:
+        type: boolean
+      daemonId:
+        type: string
+      endpoints:
+        items:
+          $ref: '#/definitions/wireless.Endpoint'
+        type: array
+      frequency:
+        type: integer
+      id:
+        type: string
+      interface:
+        type: string
+      jobId:
+        type: string
+      leaseId:
+        type: string
+      network:
+        type: string
+      networkId:
+        type: string
+    type: object
+  wireless.Dispatch:
+    properties:
+      jobs:
+        items:
+          $ref: '#/definitions/wireless.Job'
+        type: array
+      leaseUntil:
+        type: string
+      revokeContexts:
+        items:
+          type: string
+        type: array
+      verificationTargets:
+        items:
+          $ref: '#/definitions/wireless.VerificationTarget'
+        type: array
+    type: object
+  wireless.Endpoint:
+    properties:
+      contextId:
+        type: string
+      expiresAt:
+        type: string
+      id:
+        type: string
+      ip:
+        type: string
+      mac:
+        type: string
+      revision:
+        type: integer
+      status:
+        type: string
+    type: object
+  wireless.Job:
+    properties:
+      areaId:
+        type: string
+      bssid:
+        type: string
+      createdAt:
+        type: string
+      id:
+        type: string
+      kind:
+        type: string
+      leaseId:
+        type: string
+      leaseUntil:
+        type: string
+      message:
+        type: string
+      nodeId:
+        type: string
+      requestId:
+        type: string
+      status:
+        type: string
+    type: object
+  wireless.JobResult:
+    properties:
+      id:
+        type: string
+      leaseId:
+        type: string
+      message:
+        type: string
+      status:
+        type: string
+    type: object
+  wireless.Observation:
+    properties:
+      areaId:
+        type: string
+      bssid:
+        type: string
+      frequency:
+        type: integer
+      id:
+        type: string
+      kind:
+        type: string
+      mac:
+        type: string
+      nodeId:
+        type: string
+      observedAt:
+        type: string
+      security:
+        type: string
+      signal:
+        type: number
+      ssid:
+        type: string
+    type: object
+  wireless.Report:
+    properties:
+      bootId:
+        type: string
+      capabilities:
+        items:
+          type: string
+        type: array
+      contexts:
+        items:
+          $ref: '#/definitions/wireless.ContextReport'
+        type: array
+      nodeId:
+        type: string
+      observations:
+        items:
+          $ref: '#/definitions/wireless.Observation'
+        type: array
+      results:
+        items:
+          $ref: '#/definitions/wireless.JobResult'
+        type: array
+      sequence:
+        type: integer
+    type: object
+  wireless.VerificationTarget:
+    properties:
+      contextId:
+        type: string
+      expiresAt:
+        type: string
+      ip:
+        type: string
+      mac:
+        type: string
     type: object
 info:
   contact:
@@ -7232,6 +7405,56 @@ paths:
       summary: Retrieve vecstorelogs list
       tags:
       - Vecstorelogs
+  /wireless/node/report:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Bearer node enrollment token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Node report
+        in: body
+        name: report
+        required: true
+        schema:
+          $ref: '#/definitions/wireless.Report'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/wireless.Dispatch'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "503":
+          description: Service Unavailable
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Submit wireless node heartbeat, observations and job receipts
+      tags:
+      - Wireless
 securityDefinitions:
   BearerAuth:
     description: Type "Bearer" followed by a space and JWT token.

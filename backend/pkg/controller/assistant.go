@@ -102,6 +102,14 @@ type assistantInput struct {
 func reserveAssistant(ctx context.Context, awc newAssistantWorkerCtx) (database.Assistant, error) {
 	ctx, span := obs.Observer.NewSpan(ctx, obs.SpanKindInternal, "controller.reserveAssistant")
 	defer span.End()
+	functions := []byte("{}")
+	if awc.functions != nil {
+		var err error
+		functions, err = json.Marshal(awc.functions)
+		if err != nil {
+			return database.Assistant{}, err
+		}
+	}
 
 	assistant, err := awc.db.CreateAssistant(ctx, database.CreateAssistantParams{
 		Title:              "untitled",
@@ -111,7 +119,7 @@ func reserveAssistant(ctx context.Context, awc newAssistantWorkerCtx) (database.
 		ModelProviderType:  database.ProviderType(awc.prvtype),
 		Language:           "English",
 		ToolCallIDTemplate: cast.ToolCallIDTemplate,
-		Functions:          []byte("{}"),
+		Functions:          functions,
 		FlowID:             awc.flowID,
 		UseAgents:          awc.useAgents,
 	})

@@ -142,6 +142,22 @@ type flowInput struct {
 func reserveFlow(ctx context.Context, fwc newFlowWorkerCtx) (database.Flow, error) {
 	ctx, span := obs.Observer.NewSpan(ctx, obs.SpanKindInternal, "controller.reserveFlow")
 	defer span.End()
+	functions := []byte("{}")
+	if fwc.functions != nil {
+		var err error
+		functions, err = json.Marshal(fwc.functions)
+		if err != nil {
+			return database.Flow{}, err
+		}
+		if fwc.functions.Wireless != nil {
+			if fwc.cfg == nil || fwc.cfg.Wireless == nil {
+				return database.Flow{}, fmt.Errorf("wireless service unavailable")
+			}
+			if _, err := fwc.cfg.Wireless.Check(ctx, fwc.userID, *fwc.functions.Wireless); err != nil {
+				return database.Flow{}, err
+			}
+		}
+	}
 
 	flow, err := fwc.db.CreateFlow(ctx, database.CreateFlowParams{
 		Title:              "untitled",
@@ -151,12 +167,18 @@ func reserveFlow(ctx context.Context, fwc newFlowWorkerCtx) (database.Flow, erro
 		ModelProviderType:  database.ProviderType(fwc.prvtype),
 		Language:           "English",
 		ToolCallIDTemplate: cast.ToolCallIDTemplate,
-		Functions:          []byte("{}"),
+		Functions:          functions,
 		UserID:             fwc.userID,
 	})
 	if err != nil {
 		obs.LogErrorOrCancel(logrus.WithContext(ctx), err, "failed to create flow in DB")
 		return database.Flow{}, fmt.Errorf("failed to create flow in DB: %w", err)
+	}
+	if fwc.functions != nil && fwc.functions.Wireless != nil {
+		if err := fwc.cfg.Wireless.Bind(ctx, fwc.userID, flow.ID, *fwc.functions.Wireless); err != nil {
+			_, _ = fwc.db.UpdateFlowStatus(ctx, database.UpdateFlowStatusParams{ID: flow.ID, Status: database.FlowStatusFailed})
+			return database.Flow{}, err
+		}
 	}
 
 	logrus.WithContext(ctx).WithFields(logrus.Fields{

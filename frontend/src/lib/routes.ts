@@ -30,10 +30,13 @@ export const routes = {
     newKnowledge: '/knowledges/new',
     newTemplate: '/templates/new',
 
+    newWirelessFlow: (context: string, endpoint?: string) =>
+        withQuery('/flows/new', { context, endpoint, scenario: 'wireless' }),
     oauthResult: '/oauth/result',
-    resources: '/resources',
 
+    resources: '/resources',
     root: '/',
+
     settings: {
         account: '/settings/account',
         apiTokens: '/settings/api-tokens',
@@ -47,6 +50,8 @@ export const routes = {
     },
 
     template: (id: number | string) => `/templates/${id}`,
-
     templates: '/templates',
+    wireless: '/wireless',
+    wirelessArea: (id: string) => `/wireless/areas/${id}`,
+    wirelessNodes: '/wireless/nodes',
 } as const;

@@ -103,6 +103,7 @@ interface DataTableProps<TData, TValue = unknown> {
      * of whether the table is single- or multi-column.
      */
     filterValue?: string;
+    getRowId?: (row: TData) => string;
     initialPageSize?: number;
     initialSorting?: SortingState;
     /**
@@ -314,6 +315,7 @@ function DataTable<TData, TValue = unknown>({
     filterColumn,
     filterPlaceholder = 'Filter...',
     filterValue: externalFilterValue,
+    getRowId,
     initialPageSize = 10,
     initialSorting = [],
     isVirtualized = false,
@@ -608,6 +610,7 @@ function DataTable<TData, TValue = unknown>({
         getExpandedRowModel: getExpandedRowModel(),
         getFilteredRowModel: getFilteredRowModel(),
         getPaginationRowModel: getPaginationRowModel(),
+        getRowId,
         getSortedRowModel: getSortedRowModel(),
         globalFilterFn,
         onColumnVisibilityChange: handleColumnVisibilityChange,

@@ -3,7 +3,7 @@ import { createContext, useCallback, useContext, useMemo } from 'react';
 import { toast } from 'sonner';
 
 import type { FlowFormValues } from '@/features/flows/flow-form';
-import type { FlowFragmentFragment, FlowsQuery } from '@/graphql/types';
+import type { FlowFragmentFragment, FlowsQuery, WirelessBindingInput } from '@/graphql/types';
 
 import {
     CreateAssistantDocument,
@@ -20,8 +20,8 @@ import { Log } from '@/lib/log';
 export type Flow = FlowFragmentFragment;
 
 interface FlowsContextValue {
-    createFlow: (values: FlowFormValues) => Promise<null | string>;
-    createFlowWithAssistant: (values: FlowFormValues) => Promise<null | string>;
+    createFlow: (values: FlowFormValues, wireless?: WirelessBindingInput) => Promise<null | string>;
+    createFlowWithAssistant: (values: FlowFormValues, wireless?: WirelessBindingInput) => Promise<null | string>;
     deleteFlow: (flow: Flow) => Promise<boolean>;
     finishFlow: (flow: Flow) => Promise<boolean>;
     flows: Array<Flow>;
@@ -63,7 +63,7 @@ export function FlowsProvider({ children }: FlowsProviderProps) {
     const [finishFlowMutation] = useMutation(FinishFlowDocument);
 
     const createFlow = useCallback(
-        async (values: FlowFormValues) => {
+        async (values: FlowFormValues, wireless?: WirelessBindingInput) => {
             const { message, providerName, resourceIds } = values;
 
             const input = message.trim();
@@ -79,6 +79,7 @@ export function FlowsProvider({ children }: FlowsProviderProps) {
                         input,
                         modelProvider,
                         resourceIds: resourceIds?.length ? resourceIds : undefined,
+                        wireless,
                     },
                 });
 
@@ -101,7 +102,7 @@ export function FlowsProvider({ children }: FlowsProviderProps) {
     );
 
     const createFlowWithAssistant = useCallback(
-        async (values: FlowFormValues) => {
+        async (values: FlowFormValues, wireless?: WirelessBindingInput) => {
             const { message, providerName, resourceIds, useAgents } = values;
 
             const input = message.trim();
@@ -119,6 +120,7 @@ export function FlowsProvider({ children }: FlowsProviderProps) {
                         modelProvider,
                         resourceIds: resourceIds?.length ? resourceIds : undefined,
                         useAgents,
+                        wireless,
                     },
                 });
 

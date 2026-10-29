@@ -31,6 +31,8 @@ const EXCLUDED: Record<string, string> = {
 
 /** Route builders are functions, so the static walk below cannot see them. */
 const DYNAMIC_ROUTES: Record<string, string> = {
+    newWirelessFlow: 'specs/wireless.spec.ts — verified client opens the shared flow form',
+    wirelessArea: 'specs/wireless.spec.ts — live assets and disappearance',
     flow: 'manifest entry (routes.flow("5"))',
     flowReport: 'not swept: needs a finished-flow report cassette',
     knowledge: 'specs/crud/knowledges.spec.ts — detail page after create',

@@ -3,10 +3,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import FlowDashboard from '@/features/flows/dashboard/flow-dashboard';
 import FlowAssistantMessages from '@/features/flows/messages/flow-assistant-messages';
 import FlowAutomationMessages from '@/features/flows/messages/flow-automation-messages';
-import { useFlowTabDetection } from '@/hooks/use-flow-tab-detection';
+import { FlowWireless, useWirelessFlowBinding } from '@/features/wireless/flow-wireless';
+import { CENTRAL_TAB_VALUES, useFlowTabDetection, WIRELESS_CENTRAL_TAB_VALUES } from '@/hooks/use-flow-tab-detection';
 
 function FlowCentralTabs() {
-    const { handleTabChange, resolvedTab } = useFlowTabDetection();
+    const binding = useWirelessFlowBinding();
+    const { handleTabChange, resolvedTab } = useFlowTabDetection(
+        binding ? WIRELESS_CENTRAL_TAB_VALUES : CENTRAL_TAB_VALUES,
+    );
 
     return (
         <Tabs
@@ -21,11 +25,20 @@ function FlowCentralTabs() {
                         <TabsTrigger value="automation">Automation</TabsTrigger>
                         <TabsTrigger value="assistant">Assistant</TabsTrigger>
                         <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+                        {binding && <TabsTrigger value="wireless">Wireless</TabsTrigger>}
                     </TabsList>
                     <ScrollBar orientation="horizontal" />
                 </ScrollArea>
             </div>
 
+            {binding && (
+                <TabsContent
+                    className="mt-1 flex-1 overflow-auto pr-4"
+                    value="wireless"
+                >
+                    <FlowWireless />
+                </TabsContent>
+            )}
             <TabsContent
                 className="mt-1 flex-1 overflow-auto pr-4"
                 value="automation"

@@ -6,10 +6,12 @@ import { getLatestSearchParams } from '@/lib/url-params';
 import { useFlow } from '@/providers/flow-provider';
 
 export const CENTRAL_TAB_VALUES = ['automation', 'assistant', 'dashboard'];
+export const WIRELESS_CENTRAL_TAB_VALUES = [...CENTRAL_TAB_VALUES, 'wireless'];
 
 export const SIDE_TAB_VALUES = ['terminal', 'tasks', 'agents', 'tools', 'vectorStores', 'files', 'screenshots'];
 
-export const FLOW_TAB_VALUES = [...CENTRAL_TAB_VALUES, ...SIDE_TAB_VALUES];
+export const GENERAL_FLOW_TAB_VALUES = [...CENTRAL_TAB_VALUES, ...SIDE_TAB_VALUES];
+export const FLOW_TAB_VALUES = [...GENERAL_FLOW_TAB_VALUES, 'wireless'];
 
 export const SIDE_TAB_PARAM = 'side';
 

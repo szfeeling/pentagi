@@ -27,6 +27,10 @@ vi.mock('@/providers/system-settings-provider', () => ({
     useSystemSettings: () => ({ settings: { assistantUseAgents: false } }),
 }));
 
+vi.mock('@/providers/wireless-provider', () => ({
+    useWireless: () => ({ state: null, error: null }),
+}));
+
 vi.mock('@/providers/templates-provider', () => ({
     useTemplates: () => ({ templates: [] }),
 }));

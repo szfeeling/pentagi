@@ -46,9 +46,15 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import FlowCentralTabs from '@/features/flows/flow-central-tabs';
 import FlowTabs from '@/features/flows/flow-tabs';
 import { useFlowDetailNavigation } from '@/features/flows/use-flow-detail-navigation';
+import { useWirelessFlowBinding } from '@/features/wireless/flow-wireless';
 import { RenameFlowDocument, ResultType, StatusType } from '@/graphql/types';
 import { useBreakpoint } from '@/hooks/use-breakpoint';
-import { FLOW_TAB_VALUES, useFlowSideTab, useFlowTabDetection } from '@/hooks/use-flow-tab-detection';
+import {
+    FLOW_TAB_VALUES,
+    GENERAL_FLOW_TAB_VALUES,
+    useFlowSideTab,
+    useFlowTabDetection,
+} from '@/hooks/use-flow-tab-detection';
 import { useIsOwnFlow } from '@/hooks/use-is-own-flow';
 import { copyToClipboard } from '@/lib/clipboard';
 import { Log } from '@/lib/log';
@@ -81,6 +87,7 @@ const renderFlowItem = (item: FlowItem, isCurrent: boolean): ReactNode => (
 );
 
 function Flow() {
+    const wirelessBinding = useWirelessFlowBinding();
     const { isDesktop, isMobile } = useBreakpoint();
     const navigate = useNavigate();
 
@@ -184,7 +191,9 @@ function Flow() {
     }, [flow, deleteFlow, navigate]);
 
     const { handleTabChange: handleSideTabChange, resolvedTab: sideTab } = useFlowSideTab();
-    const { handleTabChange: handleMobileTabChange, resolvedTab: mobileAutoTab } = useFlowTabDetection(FLOW_TAB_VALUES);
+    const { handleTabChange: handleMobileTabChange, resolvedTab: mobileAutoTab } = useFlowTabDetection(
+        wirelessBinding ? FLOW_TAB_VALUES : GENERAL_FLOW_TAB_VALUES,
+    );
 
     const activeTabsTab = isDesktop ? sideTab : mobileAutoTab;
     const handleTabsTabChange = isDesktop ? handleSideTabChange : handleMobileTabChange;

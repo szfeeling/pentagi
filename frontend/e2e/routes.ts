@@ -13,6 +13,7 @@ import { resourcesCassette } from './mocks/cassettes/resources.ts';
 import { settingsPromptsCassette } from './mocks/cassettes/settings-prompts.ts';
 import { settingsProvidersCassette } from './mocks/cassettes/settings-providers.ts';
 import { templatesCassette } from './mocks/cassettes/templates.ts';
+import { wirelessCassette } from './mocks/cassettes/wireless.ts';
 
 export interface RouteManifestEntry {
     a11yWaivers?: A11yWaiver[];
@@ -60,6 +61,18 @@ export const FLOW_DETAIL_TABS: RouteTab[] = [
  * compile time.
  */
 export const ROUTE_MANIFEST: RouteManifestEntry[] = [
+    {
+        cassette: wirelessCassette,
+        path: routes.wireless,
+        ready: (page) => page.getByRole('row', { name: /E2E Wireless Lab/ }),
+        sources: ['src/pages/wireless', 'src/features/wireless', 'src/providers/wireless-provider.tsx'],
+    },
+    {
+        cassette: wirelessCassette,
+        path: routes.wirelessNodes,
+        ready: (page) => page.getByRole('row', { name: /E2E Sensor/ }),
+        sources: ['src/pages/wireless', 'src/features/wireless', 'src/providers/wireless-provider.tsx'],
+    },
     {
         cassette: flowsCassette,
         path: routes.flows,

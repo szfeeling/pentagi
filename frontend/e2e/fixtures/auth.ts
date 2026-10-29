@@ -27,6 +27,7 @@ export const SEEDED_USER = {
 // The admin role's privilege set as /api/v1/info returns it. An empty list is a state the
 // backend never returns — it renders every privilege-gated control in its denied variant.
 const ADMIN_PRIVILEGES = [
+    'wireless.admin',
     'users.create',
     'users.delete',
     'users.edit',

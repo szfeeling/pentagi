@@ -20,6 +20,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -28,6 +29,7 @@ import (
 	"pentagi/pkg/graph/model"
 	obs "pentagi/pkg/observability"
 	"pentagi/pkg/providers/embeddings"
+	"pentagi/pkg/wireless"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -38,6 +40,40 @@ import (
 	"github.com/vxcontrol/langchaingo/schema"
 	"github.com/vxcontrol/langchaingo/vectorstores/pgvector"
 )
+
+type wirelessGuardStore struct{ offline atomic.Bool }
+
+func (s *wirelessGuardStore) Load(ctx context.Context, _ int64) (wireless.Snapshot, error) {
+	if err := ctx.Err(); err != nil {
+		return wireless.Snapshot{}, err
+	}
+	status := "online"
+	if s.offline.Load() {
+		status = "offline"
+	}
+	return wireless.Snapshot{Nodes: []wireless.Node{{ID: "sensor", Status: status, LastSeen: time.Now()}}, Contexts: []wireless.NetworkContext{{ID: "context-1", NodeID: "sensor", Epoch: 1, Status: "ready", ExpiresAt: time.Now().Add(time.Hour)}}}, nil
+}
+
+func (*wirelessGuardStore) Update(ctx context.Context, _ int64, _ func(*wireless.Snapshot) error) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	return errors.New("unexpected write")
+}
+
+func (*wirelessGuardStore) Owner(ctx context.Context, _, _ string) (int64, error) {
+	if err := ctx.Err(); err != nil {
+		return 0, err
+	}
+	return 0, wireless.ErrUnauthorized
+}
+
+func (*wirelessGuardStore) ActiveFlows(ctx context.Context, _ int64) (map[int64]bool, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	return map[int64]bool{}, nil
+}
 
 // --- Arguments and anonymization ---
 

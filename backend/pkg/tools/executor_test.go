@@ -21,11 +21,70 @@ import (
 	"pentagi/pkg/database"
 	obs "pentagi/pkg/observability"
 	"pentagi/pkg/observability/langfuse"
+	"pentagi/pkg/wireless"
 
 	"github.com/moby/moby/client"
 	"github.com/sirupsen/logrus"
 	"github.com/vxcontrol/langchaingo/llms"
 )
+
+func TestExecutor_Execute_WirelessGuardRejectsAndInterruptsStaleBindings(t *testing.T) {
+	for _, initiallyOffline := range []bool{true, false} {
+		t.Run(fmt.Sprint(initiallyOffline), func(t *testing.T) {
+			store := &wirelessGuardStore{}
+			store.offline.Store(initiallyOffline)
+			fte := &flowToolsExecutor{cfg: &config.Config{Wireless: wireless.New(store)}, functions: &Functions{Wireless: &wireless.Binding{ContextID: "context-1", Epoch: 1}}, tclp: &executorToolCallLog{}, replacer: identityReplacer{}}
+			entered := make(chan struct{}, 1)
+			executor, err := fte.GetCustomExecutor(CustomExecutorConfig{Definitions: []llms.FunctionDefinition{{Name: "probe"}}, Handlers: map[string]ExecutorHandler{"probe": func(ctx context.Context, _ string, _ json.RawMessage) (string, error) {
+				entered <- struct{}{}
+				<-ctx.Done()
+				return "", ctx.Err()
+			}}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
+			defer cancel()
+			done := make(chan error, 1)
+			go func() {
+				_, err := executor.Execute(ctx, 1, "call-1", "probe", "probe", "", json.RawMessage(`{}`))
+				done <- err
+			}()
+			if initiallyOffline {
+				select {
+				case err := <-done:
+					if !errors.Is(err, wireless.ErrEnvironmentChanged) {
+						t.Fatalf("stale binding error: %v", err)
+					}
+				case <-ctx.Done():
+					t.Fatal("stale binding did not return")
+				}
+				select {
+				case <-entered:
+					t.Fatal("stale tool handler ran")
+				default:
+				}
+			} else {
+				select {
+				case <-entered:
+				case err := <-done:
+					t.Fatalf("valid call refused: %v", err)
+				case <-ctx.Done():
+					t.Fatal("valid tool did not start")
+				}
+				store.offline.Store(true)
+				select {
+				case err := <-done:
+					if !errors.Is(err, context.Canceled) {
+						t.Fatalf("in-flight call was not cancelled: %v", err)
+					}
+				case <-ctx.Done():
+					t.Fatal("stale in-flight call did not stop")
+				}
+			}
+		})
+	}
+}
 
 // executorMsgLog stands in for the message log and, like the database, refuses a write through a done context.
 type executorMsgLog struct {

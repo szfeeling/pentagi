@@ -24,6 +24,7 @@ import (
 	"pentagi/pkg/graphiti"
 	"pentagi/pkg/providers/embeddings"
 	"pentagi/pkg/schema"
+	"pentagi/pkg/wireless"
 
 	"github.com/moby/moby/client"
 	"github.com/sirupsen/logrus"
@@ -38,6 +39,7 @@ type ExecutorHandler func(ctx context.Context, name string, args json.RawMessage
 type SummarizeHandler func(ctx context.Context, result string) (string, error)
 
 type Functions struct {
+	Wireless *wireless.Binding  `json:"wireless,omitempty" validate:"omitempty"`
 	Token    *string            `form:"token,omitempty" json:"token,omitempty" validate:"omitempty"`
 	Disabled []DisableFunction  `form:"disabled,omitempty" json:"disabled,omitempty" validate:"omitempty,valid"`
 	Function []ExternalFunction `form:"functions,omitempty" json:"functions,omitempty" validate:"omitempty,valid"`
@@ -175,17 +177,20 @@ type flowToolsExecutor struct {
 	tclp   ToolCallLogProvider
 	knp    KnowledgeProvider
 
-	db             database.Querier
-	cfg            *config.Config
-	embedder       embeddings.Embedder
-	store          *pgvector.Store
-	graphitiClient *graphiti.Client
-	image          string
-	docker         docker.DockerClient
-	primaryID      int64
-	primaryLID     string
-	functions      *Functions
-	replacer       anonymizer.Replacer
+	db                database.Querier
+	cfg               *config.Config
+	embedder          embeddings.Embedder
+	store             *pgvector.Store
+	graphitiClient    *graphiti.Client
+	image             string
+	docker            docker.DockerClient
+	primaryID         int64
+	primaryLID        string
+	functions         *Functions
+	replacer          anonymizer.Replacer
+	wirelessWatchOnce sync.Once
+	wirelessStopOnce  sync.Once
+	wirelessStop      chan struct{}
 
 	definitions map[string]llms.FunctionDefinition
 	handlers    map[string]ExecutorHandler
@@ -388,15 +393,16 @@ func NewFlowToolsExecutor(
 	}
 
 	return &flowToolsExecutor{
-		db:          db,
-		docker:      docker,
-		functions:   functions,
-		replacer:    sharedReplacer,
-		cfg:         cfg,
-		flowID:      flowID,
-		userID:      userID,
-		definitions: make(map[string]llms.FunctionDefinition),
-		handlers:    make(map[string]ExecutorHandler),
+		wirelessStop: make(chan struct{}),
+		db:           db,
+		docker:       docker,
+		functions:    functions,
+		replacer:     sharedReplacer,
+		cfg:          cfg,
+		flowID:       flowID,
+		userID:       userID,
+		definitions:  make(map[string]llms.FunctionDefinition),
+		handlers:     make(map[string]ExecutorHandler),
 	}, nil
 }
 
@@ -479,6 +485,20 @@ func (fte *flowToolsExecutor) SetGraphitiClient(client *graphiti.Client) {
 }
 
 func (fte *flowToolsExecutor) Prepare(ctx context.Context) error {
+	if fte.functions != nil && fte.functions.Wireless != nil {
+		if fte.cfg.Wireless == nil {
+			return wireless.ErrEnvironmentChanged
+		}
+		network, err := fte.cfg.Wireless.Check(ctx, fte.userID, *fte.functions.Wireless)
+		if err != nil {
+			return err
+		}
+		scoped, err := docker.WirelessRuntime(ctx, fte.docker, network)
+		if err != nil {
+			return err
+		}
+		fte.docker = scoped
+	}
 	if cnt, err := fte.db.GetFlowPrimaryContainer(ctx, fte.flowID); err == nil {
 		containerName := PrimaryTerminalName(fte.cfg.TenantPrefix(), fte.flowID)
 		// the stored status goes stale when the container is removed outside pentagi
@@ -505,6 +525,7 @@ func (fte *flowToolsExecutor) Prepare(ctx context.Context) error {
 				if err := fte.syncMissingFiles(ctx); err != nil {
 					return fmt.Errorf("failed to sync missing files to container '%s': %w", containerName, err)
 				}
+				fte.startWirelessWatch()
 				return nil
 			}
 		}
@@ -519,6 +540,12 @@ func (fte *flowToolsExecutor) Prepare(ctx context.Context) error {
 	// Shared with the startup sandbox check, so the container it measures is the
 	// container agents get.
 	workerConfig, workerHostConfig := docker.WorkerSpec(fte.cfg, fte.image)
+	if fte.functions != nil && fte.functions.Wireless != nil {
+		if workerConfig.Labels == nil {
+			workerConfig.Labels = make(map[string]string)
+		}
+		workerConfig.Labels["pentagi.wireless.context"] = fte.functions.Wireless.ContextID
+	}
 
 	containerName := PrimaryTerminalName(fte.cfg.TenantPrefix(), fte.flowID)
 	cnt, err := fte.docker.RunContainer(
@@ -539,6 +566,12 @@ func (fte *flowToolsExecutor) Prepare(ctx context.Context) error {
 	if err := fte.syncMissingFiles(ctx); err != nil {
 		return fmt.Errorf("failed to sync files to container '%s': %w", containerName, err)
 	}
+	_, done, err := fte.wirelessGuard(ctx)
+	done()
+	if err != nil {
+		return err
+	}
+	fte.startWirelessWatch()
 
 	return nil
 }
@@ -743,6 +776,9 @@ func (fte *flowToolsExecutor) cachedResourcesDir() (string, error) {
 }
 
 func (fte *flowToolsExecutor) Release(ctx context.Context) error {
+	if fte.wirelessStop != nil {
+		fte.wirelessStopOnce.Do(func() { close(fte.wirelessStop) })
+	}
 	if fte.store != nil {
 		// Do NOT close the store when it is backed by the shared pgxpool — the pool
 		// outlives individual flows and is shared by all executors. Only close when
@@ -791,6 +827,7 @@ func (fte *flowToolsExecutor) GetCustomExecutor(cfg CustomExecutorConfig) (Conte
 	}
 
 	return &customExecutor{
+		guard:       fte.wirelessGuard,
 		userID:      fte.userID,
 		flowID:      fte.flowID,
 		taskID:      cfg.TaskID,
@@ -977,6 +1014,7 @@ func (fte *flowToolsExecutor) GetAssistantExecutor(cfg AssistantExecutorConfig) 
 	}
 
 	ce := &customExecutor{
+		guard:       fte.wirelessGuard,
 		userID:      fte.userID,
 		flowID:      fte.flowID,
 		mlp:         fte.mlp,
@@ -1024,6 +1062,7 @@ func (fte *flowToolsExecutor) GetPrimaryExecutor(cfg PrimaryExecutorConfig) (Con
 	}
 
 	ce := &customExecutor{
+		guard:     fte.wirelessGuard,
 		userID:    fte.userID,
 		flowID:    fte.flowID,
 		taskID:    &cfg.TaskID,
@@ -1102,6 +1141,7 @@ func (fte *flowToolsExecutor) GetInstallerExecutor(cfg InstallerExecutorConfig) 
 	)
 
 	ce := &customExecutor{
+		guard:     fte.wirelessGuard,
 		userID:    fte.userID,
 		flowID:    fte.flowID,
 		taskID:    cfg.TaskID,
@@ -1210,6 +1250,7 @@ func (fte *flowToolsExecutor) GetCoderExecutor(cfg CoderExecutorConfig) (Context
 	)
 
 	ce := &customExecutor{
+		guard:     fte.wirelessGuard,
 		userID:    fte.userID,
 		flowID:    fte.flowID,
 		taskID:    cfg.TaskID,
@@ -1336,6 +1377,7 @@ func (fte *flowToolsExecutor) GetPentesterExecutor(cfg PentesterExecutorConfig) 
 	)
 
 	ce := &customExecutor{
+		guard:     fte.wirelessGuard,
 		userID:    fte.userID,
 		flowID:    fte.flowID,
 		taskID:    cfg.TaskID,
@@ -1437,6 +1479,7 @@ func (fte *flowToolsExecutor) GetSearcherExecutor(cfg SearcherExecutorConfig) (C
 	}
 
 	ce := &customExecutor{
+		guard:     fte.wirelessGuard,
 		userID:    fte.userID,
 		flowID:    fte.flowID,
 		taskID:    cfg.TaskID,
@@ -1531,6 +1574,7 @@ func (fte *flowToolsExecutor) GetGeneratorExecutor(cfg GeneratorExecutorConfig) 
 	)
 
 	ce := &customExecutor{
+		guard:    fte.wirelessGuard,
 		userID:   fte.userID,
 		flowID:   fte.flowID,
 		taskID:   &cfg.TaskID,
@@ -1601,6 +1645,7 @@ func (fte *flowToolsExecutor) GetRefinerExecutor(cfg RefinerExecutorConfig) (Con
 	)
 
 	ce := &customExecutor{
+		guard:    fte.wirelessGuard,
 		userID:   fte.userID,
 		flowID:   fte.flowID,
 		taskID:   &cfg.TaskID,
@@ -1667,6 +1712,7 @@ func (fte *flowToolsExecutor) GetMemoristExecutor(cfg MemoristExecutorConfig) (C
 	)
 
 	ce := &customExecutor{
+		guard:     fte.wirelessGuard,
 		userID:    fte.userID,
 		flowID:    fte.flowID,
 		taskID:    cfg.TaskID,
@@ -1742,6 +1788,7 @@ func (fte *flowToolsExecutor) GetEnricherExecutor(cfg EnricherExecutorConfig) (C
 	)
 
 	ce := &customExecutor{
+		guard:     fte.wirelessGuard,
 		userID:    fte.userID,
 		flowID:    fte.flowID,
 		taskID:    cfg.TaskID,
@@ -1814,6 +1861,7 @@ func (fte *flowToolsExecutor) GetReporterExecutor(cfg ReporterExecutorConfig) (C
 	}
 
 	return &customExecutor{
+		guard:       fte.wirelessGuard,
 		userID:      fte.userID,
 		flowID:      fte.flowID,
 		taskID:      cfg.TaskID,

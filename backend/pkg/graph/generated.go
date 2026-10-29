@@ -372,8 +372,8 @@ type ComplexityRoot struct {
 		AnonymizeText           func(childComplexity int, text string) int
 		CallAssistant           func(childComplexity int, flowID int64, assistantID int64, input string, useAgents bool, resourceIds []int64) int
 		CreateAPIToken          func(childComplexity int, input model.CreateAPITokenInput) int
-		CreateAssistant         func(childComplexity int, flowID int64, modelProvider string, input string, useAgents bool, resourceIds []int64) int
-		CreateFlow              func(childComplexity int, modelProvider string, input string, resourceIds []int64) int
+		CreateAssistant         func(childComplexity int, flowID int64, modelProvider string, input string, useAgents bool, resourceIds []int64, wireless *model.WirelessBindingInput) int
+		CreateFlow              func(childComplexity int, modelProvider string, input string, resourceIds []int64, wireless *model.WirelessBindingInput) int
 		CreateFlowTemplate      func(childComplexity int, input model.CreateFlowTemplateInput) int
 		CreateKnowledgeDocument func(childComplexity int, input model.CreateKnowledgeDocumentInput) int
 		CreatePrompt            func(childComplexity int, typeArg model.PromptType, template string) int
@@ -400,6 +400,7 @@ type ComplexityRoot struct {
 		UpdatePrompt            func(childComplexity int, promptID int64, template string) int
 		UpdateProvider          func(childComplexity int, providerID int64, name string, agents model.AgentsConfig) int
 		ValidatePrompt          func(childComplexity int, typeArg model.PromptType, template string) int
+		WirelessCommand         func(childComplexity int, command map[string]interface{}) int
 	}
 
 	PromptValidationResult struct {
@@ -534,6 +535,7 @@ type ComplexityRoot struct {
 		UsageStatsTotal                 func(childComplexity int) int
 		VectorStoreLogs                 func(childComplexity int, flowID int64) int
 		VersionInfo                     func(childComplexity int) int
+		WirelessState                   func(childComplexity int) int
 	}
 
 	ReasoningConfig struct {
@@ -613,6 +615,7 @@ type ComplexityRoot struct {
 		ToolCallLogAdded         func(childComplexity int, flowID int64) int
 		ToolCallLogUpdated       func(childComplexity int, flowID int64) int
 		VectorStoreLogAdded      func(childComplexity int, flowID int64) int
+		WirelessUpdated          func(childComplexity int) int
 	}
 
 	Subtask struct {
@@ -777,13 +780,14 @@ type ComplexityRoot struct {
 }
 
 type MutationResolver interface {
-	CreateFlow(ctx context.Context, modelProvider string, input string, resourceIds []int64) (*model.Flow, error)
+	WirelessCommand(ctx context.Context, command map[string]interface{}) (map[string]interface{}, error)
+	CreateFlow(ctx context.Context, modelProvider string, input string, resourceIds []int64, wireless *model.WirelessBindingInput) (*model.Flow, error)
 	PutUserInput(ctx context.Context, flowID int64, input string, modelProvider *string, resourceIds []int64) (model.ResultType, error)
 	StopFlow(ctx context.Context, flowID int64) (model.ResultType, error)
 	FinishFlow(ctx context.Context, flowID int64) (model.ResultType, error)
 	DeleteFlow(ctx context.Context, flowID int64) (model.ResultType, error)
 	RenameFlow(ctx context.Context, flowID int64, title string) (model.ResultType, error)
-	CreateAssistant(ctx context.Context, flowID int64, modelProvider string, input string, useAgents bool, resourceIds []int64) (*model.FlowAssistant, error)
+	CreateAssistant(ctx context.Context, flowID int64, modelProvider string, input string, useAgents bool, resourceIds []int64, wireless *model.WirelessBindingInput) (*model.FlowAssistant, error)
 	CallAssistant(ctx context.Context, flowID int64, assistantID int64, input string, useAgents bool, resourceIds []int64) (model.ResultType, error)
 	StopAssistant(ctx context.Context, flowID int64, assistantID int64) (*model.Assistant, error)
 	DeleteAssistant(ctx context.Context, flowID int64, assistantID int64) (model.ResultType, error)
@@ -811,6 +815,7 @@ type MutationResolver interface {
 	AnonymizeText(ctx context.Context, text string) (string, error)
 }
 type QueryResolver interface {
+	WirelessState(ctx context.Context) (map[string]interface{}, error)
 	Providers(ctx context.Context) ([]*model.Provider, error)
 	Assistants(ctx context.Context, flowID int64) ([]*model.Assistant, error)
 	Flows(ctx context.Context) ([]*model.Flow, error)
@@ -857,6 +862,7 @@ type QueryResolver interface {
 	SearchKnowledge(ctx context.Context, query string, filter *model.KnowledgeFilter, limit *int) ([]*model.KnowledgeDocumentWithScore, error)
 }
 type SubscriptionResolver interface {
+	WirelessUpdated(ctx context.Context) (<-chan map[string]interface{}, error)
 	FlowCreated(ctx context.Context) (<-chan *model.Flow, error)
 	FlowDeleted(ctx context.Context) (<-chan *model.Flow, error)
 	FlowUpdated(ctx context.Context) (<-chan *model.Flow, error)
@@ -2479,7 +2485,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Mutation.CreateAssistant(childComplexity, args["flowId"].(int64), args["modelProvider"].(string), args["input"].(string), args["useAgents"].(bool), args["resourceIds"].([]int64)), true
+		return e.complexity.Mutation.CreateAssistant(childComplexity, args["flowId"].(int64), args["modelProvider"].(string), args["input"].(string), args["useAgents"].(bool), args["resourceIds"].([]int64), args["wireless"].(*model.WirelessBindingInput)), true
 
 	case "Mutation.createFlow":
 		if e.complexity.Mutation.CreateFlow == nil {
@@ -2491,7 +2497,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Mutation.CreateFlow(childComplexity, args["modelProvider"].(string), args["input"].(string), args["resourceIds"].([]int64)), true
+		return e.complexity.Mutation.CreateFlow(childComplexity, args["modelProvider"].(string), args["input"].(string), args["resourceIds"].([]int64), args["wireless"].(*model.WirelessBindingInput)), true
 
 	case "Mutation.createFlowTemplate":
 		if e.complexity.Mutation.CreateFlowTemplate == nil {
@@ -2804,6 +2810,18 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Mutation.ValidatePrompt(childComplexity, args["type"].(model.PromptType), args["template"].(string)), true
+
+	case "Mutation.wirelessCommand":
+		if e.complexity.Mutation.WirelessCommand == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_wirelessCommand_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.WirelessCommand(childComplexity, args["command"].(map[string]interface{})), true
 
 	case "PromptValidationResult.details":
 		if e.complexity.PromptValidationResult.Details == nil {
@@ -3673,6 +3691,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Query.VersionInfo(childComplexity), true
 
+	case "Query.wirelessState":
+		if e.complexity.Query.WirelessState == nil {
+			break
+		}
+
+		return e.complexity.Query.WirelessState(childComplexity), true
+
 	case "ReasoningConfig.effort":
 		if e.complexity.ReasoningConfig.Effort == nil {
 			break
@@ -4215,6 +4240,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Subscription.VectorStoreLogAdded(childComplexity, args["flowId"].(int64)), true
+
+	case "Subscription.wirelessUpdated":
+		if e.complexity.Subscription.WirelessUpdated == nil {
+			break
+		}
+
+		return e.complexity.Subscription.WirelessUpdated(childComplexity), true
 
 	case "Subtask.createdAt":
 		if e.complexity.Subtask.CreatedAt == nil {
@@ -5019,6 +5051,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 		ec.unmarshalInputUpdateAPITokenInput,
 		ec.unmarshalInputUpdateFlowTemplateInput,
 		ec.unmarshalInputUpdateKnowledgeDocumentInput,
+		ec.unmarshalInputWirelessBindingInput,
 	)
 	first := true
 
@@ -5416,6 +5449,11 @@ func (ec *executionContext) field_Mutation_createAssistant_args(ctx context.Cont
 		return nil, err
 	}
 	args["resourceIds"] = arg4
+	arg5, err := ec.field_Mutation_createAssistant_argsWireless(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["wireless"] = arg5
 	return args, nil
 }
 func (ec *executionContext) field_Mutation_createAssistant_argsFlowID(
@@ -5528,6 +5566,28 @@ func (ec *executionContext) field_Mutation_createAssistant_argsResourceIds(
 	return zeroVal, nil
 }
 
+func (ec *executionContext) field_Mutation_createAssistant_argsWireless(
+	ctx context.Context,
+	rawArgs map[string]interface{},
+) (*model.WirelessBindingInput, error) {
+	// We won't call the directive if the argument is null.
+	// Set call_argument_directives_with_null to true to call directives
+	// even if the argument is null.
+	_, ok := rawArgs["wireless"]
+	if !ok {
+		var zeroVal *model.WirelessBindingInput
+		return zeroVal, nil
+	}
+
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("wireless"))
+	if tmp, ok := rawArgs["wireless"]; ok {
+		return ec.unmarshalOWirelessBindingInput2ᚖpentagiᚋpkgᚋgraphᚋmodelᚐWirelessBindingInput(ctx, tmp)
+	}
+
+	var zeroVal *model.WirelessBindingInput
+	return zeroVal, nil
+}
+
 func (ec *executionContext) field_Mutation_createFlowTemplate_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
@@ -5578,6 +5638,11 @@ func (ec *executionContext) field_Mutation_createFlow_args(ctx context.Context, 
 		return nil, err
 	}
 	args["resourceIds"] = arg2
+	arg3, err := ec.field_Mutation_createFlow_argsWireless(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["wireless"] = arg3
 	return args, nil
 }
 func (ec *executionContext) field_Mutation_createFlow_argsModelProvider(
@@ -5643,6 +5708,28 @@ func (ec *executionContext) field_Mutation_createFlow_argsResourceIds(
 	}
 
 	var zeroVal []int64
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Mutation_createFlow_argsWireless(
+	ctx context.Context,
+	rawArgs map[string]interface{},
+) (*model.WirelessBindingInput, error) {
+	// We won't call the directive if the argument is null.
+	// Set call_argument_directives_with_null to true to call directives
+	// even if the argument is null.
+	_, ok := rawArgs["wireless"]
+	if !ok {
+		var zeroVal *model.WirelessBindingInput
+		return zeroVal, nil
+	}
+
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("wireless"))
+	if tmp, ok := rawArgs["wireless"]; ok {
+		return ec.unmarshalOWirelessBindingInput2ᚖpentagiᚋpkgᚋgraphᚋmodelᚐWirelessBindingInput(ctx, tmp)
+	}
+
+	var zeroVal *model.WirelessBindingInput
 	return zeroVal, nil
 }
 
@@ -7010,6 +7097,38 @@ func (ec *executionContext) field_Mutation_validatePrompt_argsTemplate(
 	}
 
 	var zeroVal string
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Mutation_wirelessCommand_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	arg0, err := ec.field_Mutation_wirelessCommand_argsCommand(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["command"] = arg0
+	return args, nil
+}
+func (ec *executionContext) field_Mutation_wirelessCommand_argsCommand(
+	ctx context.Context,
+	rawArgs map[string]interface{},
+) (map[string]interface{}, error) {
+	// We won't call the directive if the argument is null.
+	// Set call_argument_directives_with_null to true to call directives
+	// even if the argument is null.
+	_, ok := rawArgs["command"]
+	if !ok {
+		var zeroVal map[string]interface{}
+		return zeroVal, nil
+	}
+
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("command"))
+	if tmp, ok := rawArgs["command"]; ok {
+		return ec.unmarshalNJSON2map(ctx, tmp)
+	}
+
+	var zeroVal map[string]interface{}
 	return zeroVal, nil
 }
 
@@ -19207,6 +19326,61 @@ func (ec *executionContext) fieldContext_ModelUsageStats_stats(_ context.Context
 	return fc, nil
 }
 
+func (ec *executionContext) _Mutation_wirelessCommand(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Mutation_wirelessCommand(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().WirelessCommand(rctx, fc.Args["command"].(map[string]interface{}))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(map[string]interface{})
+	fc.Result = res
+	return ec.marshalNJSON2map(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Mutation_wirelessCommand(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type JSON does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_wirelessCommand_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Mutation_createFlow(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_Mutation_createFlow(ctx, field)
 	if err != nil {
@@ -19221,7 +19395,7 @@ func (ec *executionContext) _Mutation_createFlow(ctx context.Context, field grap
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().CreateFlow(rctx, fc.Args["modelProvider"].(string), fc.Args["input"].(string), fc.Args["resourceIds"].([]int64))
+		return ec.resolvers.Mutation().CreateFlow(rctx, fc.Args["modelProvider"].(string), fc.Args["input"].(string), fc.Args["resourceIds"].([]int64), fc.Args["wireless"].(*model.WirelessBindingInput))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -19569,7 +19743,7 @@ func (ec *executionContext) _Mutation_createAssistant(ctx context.Context, field
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().CreateAssistant(rctx, fc.Args["flowId"].(int64), fc.Args["modelProvider"].(string), fc.Args["input"].(string), fc.Args["useAgents"].(bool), fc.Args["resourceIds"].([]int64))
+		return ec.resolvers.Mutation().CreateAssistant(rctx, fc.Args["flowId"].(int64), fc.Args["modelProvider"].(string), fc.Args["input"].(string), fc.Args["useAgents"].(bool), fc.Args["resourceIds"].([]int64), fc.Args["wireless"].(*model.WirelessBindingInput))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -24307,6 +24481,50 @@ func (ec *executionContext) fieldContext_ProvidersReadinessStatus_xai(_ context.
 	return fc, nil
 }
 
+func (ec *executionContext) _Query_wirelessState(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Query_wirelessState(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Query().WirelessState(rctx)
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(map[string]interface{})
+	fc.Result = res
+	return ec.marshalNJSON2map(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Query_wirelessState(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type JSON does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Query_providers(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_Query_providers(ctx, field)
 	if err != nil {
@@ -28383,6 +28601,64 @@ func (ec *executionContext) fieldContext_Settings_assistantUseAgents(_ context.C
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Subscription_wirelessUpdated(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
+	fc, err := ec.fieldContext_Subscription_wirelessUpdated(ctx, field)
+	if err != nil {
+		return nil
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = nil
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Subscription().WirelessUpdated(rctx)
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return nil
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return nil
+	}
+	return func(ctx context.Context) graphql.Marshaler {
+		select {
+		case res, ok := <-resTmp.(<-chan map[string]interface{}):
+			if !ok {
+				return nil
+			}
+			return graphql.WriterFunc(func(w io.Writer) {
+				w.Write([]byte{'{'})
+				graphql.MarshalString(field.Alias).MarshalGQL(w)
+				w.Write([]byte{':'})
+				ec.marshalNJSON2map(ctx, field.Selections, res).MarshalGQL(w)
+				w.Write([]byte{'}'})
+			})
+		case <-ctx.Done():
+			return nil
+		}
+	}
+}
+
+func (ec *executionContext) fieldContext_Subscription_wirelessUpdated(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Subscription",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type JSON does not have child fields")
 		},
 	}
 	return fc, nil
@@ -39001,6 +39277,54 @@ func (ec *executionContext) unmarshalInputUpdateKnowledgeDocumentInput(ctx conte
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputWirelessBindingInput(ctx context.Context, obj interface{}) (model.WirelessBindingInput, error) {
+	var it model.WirelessBindingInput
+	asMap := map[string]interface{}{}
+	for k, v := range obj.(map[string]interface{}) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"contextId", "epoch", "endpointId", "endpointRevision"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "contextId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("contextId"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ContextID = data
+		case "epoch":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("epoch"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Epoch = data
+		case "endpointId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("endpointId"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.EndpointID = data
+		case "endpointRevision":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("endpointRevision"))
+			data, err := ec.unmarshalOInt2ᚖint(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.EndpointRevision = data
+		}
+	}
+
+	return it, nil
+}
+
 // endregion **************************** input.gotpl *****************************
 
 // region    ************************** interface.gotpl ***************************
@@ -41088,6 +41412,13 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("Mutation")
+		case "wirelessCommand":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_wirelessCommand(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		case "createFlow":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_createFlow(ctx, field)
@@ -41912,6 +42243,28 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("Query")
+		case "wirelessState":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_wirelessState(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
 		case "providers":
 			field := field
 
@@ -43130,6 +43483,8 @@ func (ec *executionContext) _Subscription(ctx context.Context, sel ast.Selection
 	}
 
 	switch fields[0].Name {
+	case "wirelessUpdated":
+		return ec._Subscription_wirelessUpdated(ctx, fields[0])
 	case "flowCreated":
 		return ec._Subscription_flowCreated(ctx, fields[0])
 	case "flowDeleted":
@@ -45504,6 +45859,27 @@ func (ec *executionContext) unmarshalNInt2int(ctx context.Context, v interface{}
 
 func (ec *executionContext) marshalNInt2int(ctx context.Context, sel ast.SelectionSet, v int) graphql.Marshaler {
 	res := graphql.MarshalInt(v)
+	if res == graphql.Null {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+	}
+	return res
+}
+
+func (ec *executionContext) unmarshalNJSON2map(ctx context.Context, v interface{}) (map[string]interface{}, error) {
+	res, err := graphql.UnmarshalMap(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNJSON2map(ctx context.Context, sel ast.SelectionSet, v map[string]interface{}) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	res := graphql.MarshalMap(v)
 	if res == graphql.Null {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -48334,6 +48710,14 @@ func (ec *executionContext) marshalOVectorStoreLog2ᚕᚖpentagiᚋpkgᚋgraph�
 	}
 
 	return ret
+}
+
+func (ec *executionContext) unmarshalOWirelessBindingInput2ᚖpentagiᚋpkgᚋgraphᚋmodelᚐWirelessBindingInput(ctx context.Context, v interface{}) (*model.WirelessBindingInput, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputWirelessBindingInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
 func (ec *executionContext) marshalO__EnumValue2ᚕgithubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐEnumValueᚄ(ctx context.Context, sel ast.SelectionSet, v []introspection.EnumValue) graphql.Marshaler {

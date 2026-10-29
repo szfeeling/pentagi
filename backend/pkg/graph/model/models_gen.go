@@ -669,6 +669,13 @@ type VersionInfo struct {
 	FailedAt  *time.Time  `json:"failedAt,omitempty"`
 }
 
+type WirelessBindingInput struct {
+	ContextID        string  `json:"contextId"`
+	Epoch            int     `json:"epoch"`
+	EndpointID       *string `json:"endpointId,omitempty"`
+	EndpointRevision *int    `json:"endpointRevision,omitempty"`
+}
+
 type AgentConfigType string
 
 const (
